@@ -1,0 +1,492 @@
+---
+title: "Final Project"
+author: '"Group #8: Terry Yu, Chuyue Cui, Caomengyu Xue, Zhuoning Zhang"'
+date: "`r Sys.Date()`"
+output:
+  html_notebook: default
+  word_document: default
+  html_document: default
+  pdf_document: default
+urlcolor: blue
+---
+
+## 1. Introduction
+
+In this analysis, we focus on Amazon and its role as a leading global e-commerce company. Amazon offers a variety of products across different categories, including consumer electronics, appliances, fashion, and more. The datasets used in this analysis provide insights into customer behavior and product listings on Amazon. The main problem addressed involves understanding customer preferences and identifying actionable strategies to improve product offerings and marketing tactics.
+
+# First, set your working directory using setwd() and read in the data
+
+First, setup the working directory and read in the problem data. The working directory is where the data input file and results output file are stored, together with this R mark down file. 
+
+```{r}
+# Set working directory
+setwd("C:/Users/shuqi/OneDrive/Desktop/Marketing with R/Final Project")
+
+# Load necessary library
+library(readxl)
+
+# Load the datasets
+datafile1 <- read.csv("C:/Users/shuqi/OneDrive/Desktop/Marketing with R/Final Project/Amazon-Products.csv")
+datafile2 <- read.csv("C:/Users/shuqi/OneDrive/Desktop/Marketing with R/Final Project/Amazon Customer Behavior Survey.csv")
+
+#Quick Dataset rename
+mydata1 <- datafile1
+mydata2 <- datafile2
+```
+
+## 2. Exploratory Data Analysis (EDA)
+### Overview of Insights from EDA
+We began by conducting an exploratory data analysis of the provided datasets:
+
+- **Amazon Customer Behavior Survey Dataset**: This dataset captures customer survey responses, providing insights into customer preferences, purchasing behavior, and satisfaction levels.
+- **Amazon Products Dataset**: This dataset contains detailed product information, including product names, categories, ratings, and pricing.
+
+#Initial Cleaning for Dataset 1 + Checks
+```{r}
+library(tidyverse)
+library(janitor)
+library(corrplot)
+#Initial Cleaning
+mydata1$ratings <- as.numeric(mydata1$ratings)
+mydata1$no_of_ratings <- as.numeric(mydata1$no_of_ratings)
+mydata1$discount_price <- as.numeric(gsub("[^0-9.]", "", mydata1$discount_price))
+mydata1$actual_price <- as.numeric(gsub("[^0-9.]", "", mydata1$actual_price))
+mydata1$ratings[is.na(mydata1$ratings)] <- 0
+mydata1$ratings[is.na(mydata1$no_of_ratings)] <- 0
+mydata1 <- na.omit(mydata1)
+# Check missing value
+mis_value <- sum(is.na(mydata1))
+print(mis_value)
+mis_per_column <- colSums(is.na(mydata1))
+print(mis_per_column)
+#table() commenting out due to output size
+
+# outliers for Item Prices
+Q1 <- 359
+Q3 <- 1189
+IQR_value <- Q3 - Q1
+lower_bound <- Q1 - 1.5 * IQR_value
+upper_bound <- Q3 + 1.5 * IQR_value
+lower_bound <- Q1 - 1.5 * IQR_value
+upper_bound <- Q3 + 1.5 * IQR_value
+outliers3 <- mydata1[mydata1$actual_price < lower_bound 
+                   | mydata1$actual_price > upper_bound, ]
+cat("Lower Bound:", lower_bound, "\n")
+cat("Upper Bound:", upper_bound, "\n")
+cat("Number of Outliers Detected for Pricing:", nrow(outliers3), "\n")
+
+#correlation 
+#correlation of numerical data
+numeric_data <- mydata1 |>
+  select(where(is.numeric))
+
+cor_matrix <- cor(numeric_data, use = "complete.obs")
+correlation_table <- as.data.frame(cor_matrix)
+print(correlation_table)
+
+#Quick info functions:
+names(mydata1)
+summary(mydata1)
+```
+#Initial Cleaning for Dataset 2 + Checks
+```{r}
+# Check missing value
+mis_value <- sum(is.na(mydata2))
+print(mis_value)
+mis_per_column <- colSums(is.na(mydata2))
+print(mis_per_column)
+# Convert the Gender column to a factor and create dummy variables
+mydata2$Gender <- as.factor(mydata2$Gender)
+gender_dummies <- model.matrix(~ Gender - 1, data = mydata2)
+mydata2 <- cbind(mydata2, gender_dummies)
+
+# Convert Purchase_Categories to a numeric variable
+mydata2$purchase_category_numeric <- as.numeric(as.factor(mydata2$Purchase_Categories))
+
+#outliers
+#outliers for age
+Q1 <- 23.00
+Q3 <- 36.00
+IQR_value <- Q3 - Q1
+lower_bound <- Q1 - 1.5 * IQR_value
+upper_bound <- Q3 + 1.5 * IQR_value
+lower_bound <- Q1 - 1.5 * IQR_value
+upper_bound <- Q3 + 1.5 * IQR_value
+outliers4 <- mydata2[mydata2$age < lower_bound 
+                   | mydata2$age > upper_bound, ]
+cat("Lower Bound:", lower_bound, "\n")
+cat("Upper Bound:", upper_bound, "\n")
+cat("Number of Outliers Detected of age:", nrow(outliers4), "\n")
+
+#outliers for rating accuracy
+Q1 <- 2.000
+Q3 <- 3.000
+IQR_value <- Q3 - Q1
+lower_bound <- Q1 - 1.5 * IQR_value
+upper_bound <- Q3 + 1.5 * IQR_value
+lower_bound <- Q1 - 1.5 * IQR_value
+upper_bound <- Q3 + 1.5 * IQR_value
+outliers7 <- mydata2[mydata2$rating_accuracy < lower_bound 
+                   | mydata2$rating_accuracy > upper_bound, ]
+cat("Lower Bound:", lower_bound, "\n")
+cat("Upper Bound:", upper_bound, "\n")
+cat("Number of Outliers Detected of rating_accuracy:", nrow(outliers7), "\n")
+
+#Quick info functions:
+names(mydata2)
+summary(mydata2)
+```
+```{r}
+# Calculating correlation
+cor_columns <- c("age", "purchase_category_numeric", "GenderMale", "GenderFemale", "GenderOthers", "GenderPrefer not to say")
+correlation_result <- cor(mydata2[, cor_columns], use = "complete.obs")
+print(correlation_result)
+```
+### Summary of our cleaning and tests
+#Dataset Overview  
+Customer Behavior Survey Data: This dataset contains 602 records with 23 columns related to demographic and purchasing behaviors of Amazon customers. The variables cover age, gender, purchase frequency, cart abandonment factors, recommendation frequency, and other behavioral metrics.
+Amazon Products Data: This dataset is substantially larger, containing 551,585 records across 10 columns that include product details like name, category, sub-category, ratings, number of ratings, discount price, and actual price.  
+#Cleaning
+
+# Overarching Question:
+How can we analyze the performance of different product categories to identify and boost sales for lower-performing categories, while determining the primary consumer demographics associated with these categories for more targeted marketing strategies?
+#Sub-Questions:
+1.Who are the primary consumer demographics associated with each category? Is there a direct correlation between certain demographic variables and consumerism of certain product categories? If so, we can fine tune our marketing strategies for said demographic to further increase marketability for said demographic or potentially shift our focus in marketing to weaker demographics to increase their incentive to consume. 
+2.Is there a correlation between a product’s rating and their discounted price; for example if a products rating is high does that mean it gets discounted less or the discounted price isn’t as big in comparison to the original price since it doesn’t need discounts to sell. This can then be tied to the customer satisfaction/review categorical columns to gain a deeper understanding of the impact of ratings and reviews on a products performance which should prove beneficial to our marketing strategy optimization 
+3. Our last analysis question can be a focus on the customer recommendations for each product category-is there a correlation in our supporting dataset between purchasing variables such as frequency and cart abandonment frequency/reasoning and their recommendations? If so, we can then fine tune our marketing strategies for said product or do an internal improvement of the actual product to aid in its selling incentive or perhaps a shift in marketing to cover up such flaws. 
+
+#1 EDA: Consumer Demographics vs Purchase Categories
+```{r}
+demographic_vars <- mydata2 %>% select(age, Gender, Purchase_Frequency, Purchase_Categories)
+
+# Encoding categorical variables as numeric values
+demographic_vars$Gender <- as.numeric(factor(demographic_vars$Gender))
+demographic_vars$Purchase_Frequency <- as.numeric(factor(demographic_vars$Purchase_Frequency))
+
+# Calculate the correlation matrix
+cor_matrix_demographic <- cor(demographic_vars %>% select(-Purchase_Categories), use = "complete.obs")
+print(cor_matrix_demographic)
+
+# Visualize heatmaps of correlations between demographic variables
+# Correlation plot
+corrplot(cor_matrix_demographic, method = "color", addCoef.col = "black", tl.col = "black")
+
+# Distribution of main categories
+category_df <- mydata1 %>%
+  group_by(main_category) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+# Color palette
+color_palette <- colorRampPalette(c("#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", 
+                                    "#a6d854", "#ffd92f", "#e5c494", "#b3b3b3", 
+                                    "#1b9e77", "#d95f02", "#7570b3", "#e7298a", 
+                                    "#66a61e", "#e6ab02", "#a6761d", "#666666"))(length(category_df$main_category))
+
+#Categorical Pie Chart for ease of Reference 
+ggplot(category_df, aes(x = "", y = count, fill = main_category)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +
+  theme_void() +
+  labs(title = "Distribution of Main Categories") +
+  scale_fill_manual(values = color_palette) +  # Applying custom colors
+  theme(legend.position = "right")
+
+
+demographic_vars <- mydata2 %>%
+  select(age, Gender, Purchase_Frequency, Purchase_Categories)
+
+demographic_vars$Gender <- as.numeric(factor(demographic_vars$Gender))
+demographic_vars$Purchase_Frequency <- as.numeric(factor(demographic_vars$Purchase_Frequency))
+
+categories_data <- demographic_vars %>%
+  separate_rows(Purchase_Categories, sep = ";") %>%
+  group_by(Purchase_Categories) %>%
+  summarise(
+    avg_age = mean(age, na.rm = TRUE),
+    gender_ratio = mean(Gender, na.rm = TRUE), # Assuming numeric gender encodes male/female
+    frequency_avg = mean(Purchase_Frequency, na.rm = TRUE)
+  )
+categories_data %>%
+  ggplot(aes(x = reorder(Purchase_Categories, -avg_age), y = avg_age, fill = frequency_avg)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(
+    title = "Average Age and Frequency by Purchase Category",
+    x = "Purchase Category",
+    y = "Average Age",
+    fill = "Frequency"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+mydata1 <- mydata1 %>%
+  mutate(main_category = case_when(
+    tolower(main_category) %in% c("grocery", "gourmet foods") ~ "Groceries and Gourmet Food",
+    tolower(main_category) %in% c(
+      "bags & luggage", "kids' fashion", "men's clothing", "men's shoes",
+      "sports & fitness", "toys & baby products", "women's clothing", "women's shoes"
+    ) ~ "Clothing and Fashion",
+    tolower(main_category) == "beauty & health" ~ "Beauty and Personal Care",
+    tolower(main_category) %in% c("home & kitchen", "home", "kitchen", "pets") ~ "Home and Kitchen",
+    TRUE ~ "others"
+  ))
+
+mydata1$ratings <- as.numeric(mydata1$ratings)
+
+category_summary <- mydata1 %>%
+  group_by(main_category) %>%
+  summarise(
+    count = n(),
+    avg_rating = mean(ratings, na.rm = TRUE)
+  )
+
+ggplot(category_summary, aes(x = reorder(main_category, -count), y = count, fill = avg_rating)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(avg_rating, 2)), vjust = -0.5, size = 4, color = "black") +
+  scale_fill_gradient(low = "blue", high = "red", name = "Avg Ratings") +
+  labs(
+    title = "Number of Products and Average Ratings by Category",
+    x = "Category",
+    y = "Number of Products"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+Based on our correlation matrix and graph outputs we can infer the following-demographic factors like age and gender have limited predictive power for consumerism in the dataset. This insight suggests that while demographics may be useful for basic segmentation, the key to boosting sales for lower-performing categories may lie in a deeper understanding of consumer interests, product relevance, and behavioral patterns beyond demographic profiles. Further analyses exploring categorical data could shed more light on category-specific preferences and identify areas where targeted product promotions may drive sales which flow into our additional questions below. Additionally, we can see a focus in purchasing areas such as appliances and male clothing items, giving us a visual showcase of lower perfomring areas based on their purchased frequency. 
+
+#2 EDA: Product's Rating vs It's Discounts
+```{r}
+#find the linear relationship between ratings and discout price
+mydata1$ratings <- as.numeric(as.character(mydata1$ratings))
+mydata1$discount_price <- as.character(mydata1$discount_price)
+mydata1$discount_price <- as.numeric(gsub("[^0-9.]", "", mydata1$discount_price))
+
+library(ggplot2)
+ggplot(mydata1, aes(x = ratings, y = discount_price)) +
+  geom_point(color = "blue") +
+  geom_smooth(method = "lm", color = "red",aloha = 0.6) +
+  labs(title = "Correlation between Product Rating and Discount Price", x = "Product Rating", y = "Discounted Price")
+
+#find the discount price mean
+rating_groups <- mydata1 |>
+  group_by(ratinggroup =cut(ratings, breaks=seq(0,5,by = 1))) |>
+  summarize(AvgDiscountPrice = mean(discount_price, na.rm = TRUE),
+            Count = n())
+
+ggplot(rating_groups,aes(x=ratinggroup,y=AvgDiscountPrice)) +
+  geom_bar(stat="identity", fill = "#66c2a5") +
+  labs(title = "Average Discount Price by Rating Group",
+       x = "Rating Group",
+       y = "Average Discount Price") +
+  theme_minimal()
+
+# the distribution of review and satisfaction
+mydata2 <- as_tibble(mydata2, .name_repair = "unique")
+review_groups <- mydata2 |>
+  group_by(Review_Helpfulness) |>
+  summarize(
+    AvgSatisfaction = mean(Shopping_Satisfaction, na.rm = TRUE),
+    Count = n()
+  )
+
+ggplot(review_groups,aes(x = Review_Helpfulness,y= AvgSatisfaction , fill = Review_Helpfulness)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Average Satisfaction by Review Category",
+       x = "Review Category",
+       y = "Average Satisfaction") +
+  theme_minimal()
+
+comparison_data <- data.frame(
+  Group = rating_groups$ratinggroup,
+  AvgDiscountPrice = rating_groups$AvgDiscountPrice,
+  AvgSatisfaction = review_groups$AvgSatisfaction[1:length(rating_groups$ratinggroup)])
+
+colSums(is.na(comparison_data))
+comparison_data$AvgSatisfaction[is.na(comparison_data$AvgSatisfaction)] <- 
+  mean(comparison_data$AvgSatisfaction, na.rm = TRUE)
+clean_data <- na.omit(comparison_data)
+
+
+clean_data$Group <- as.character(clean_data$Group)
+clean_data$Group[clean_data$Group %in% c("(0,1]", "(1,2]")] <- "Low"
+clean_data$Group[clean_data$Group %in% c("(2,3]")] <- "Medium"
+clean_data$Group[clean_data$Group %in% c("(3,4]", "(4,5]")] <- "High"
+clean_data$Group <- as.factor(clean_data$Group)
+
+model <- lm(AvgSatisfaction ~ Group + AvgDiscountPrice, data= clean_data)
+summary(model)
+plot(model)
+```
+In short, there seems to be no significant correlation between product ratings and discounted prices, suggesting that ratings are not a major factor in determining discount levels. While most products are well-rated, this doesn't appear to correlate strongly with discounting practices. Therefore, marketing strategies should focus on leveraging positive ratings in promotional messaging while considering broader market factors when setting discounts. Additionally, understanding customer satisfaction and review feedback could provide more actionable insights for improving product offerings and optimizing marketing efforts in a broader/longer sense.
+
+#3 EDA: Customer Feedback and Puchrasing Incentive/Frequency
+```{r}
+# Create the purchasing_vars data frame
+purchasing_vars <- mydata2 %>% select(Purchase_Frequency, Cart_Abandonment_Factors, Personalized_Recommendation_Frequency)
+
+# Convert the purchase variable to numeric and calculate the correlation
+purchasing_vars$Purchase_Frequency <- as.numeric(factor(purchasing_vars$Purchase_Frequency))
+purchasing_vars$Cart_Abandonment_Factors <- as.numeric(factor(purchasing_vars$Cart_Abandonment_Factors))
+purchasing_vars$Personalized_Recommendation_Frequency <- as.numeric(factor(purchasing_vars$Personalized_Recommendation_Frequency))
+
+# Calculate the correlation matrix
+cor_matrix_purchasing <- cor(purchasing_vars, use = "complete.obs")
+print(cor_matrix_purchasing)
+
+# Visualizing Correlation Heatmaps
+corrplot(cor_matrix_purchasing, method = "color", addCoef.col = "black", tl.col = "black", title = "Purchasing Variables vs. Recommendations", mar = c(0,0,1,0))
+
+#Duplicate Columns Removal
+mydata2 <- mydata2[, -((ncol(mydata2)-3):ncol(mydata2))]
+
+# graph of age demographics by category
+survey_data <- mydata2 %>%
+  separate_rows(Purchase_Categories, sep = ";")
+
+age_demographics <- survey_data %>%
+  group_by(Purchase_Categories, age) %>%
+  summarise(Count = n()) %>%
+  na.omit()
+
+ggplot(age_demographics, aes(x = age, y = Count, fill = age)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~Purchase_Categories, scales = "free_y") +
+  labs(title = "Age Demographics by Purchase Category", x = "Age", y = "Count") +
+  theme_minimal()
+
+# graph of gender demographics by category
+gender_demographics <- survey_data %>%
+  group_by(Purchase_Categories, Gender) %>%
+  summarise(Count = n()) %>%
+  na.omit()
+
+ggplot(gender_demographics, aes(x = Gender, y = Count, fill = Gender)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~Purchase_Categories, scales = "free_y") +
+  labs(title = "Gender Demographics by Purchase Category", x = "Gender", y = "Count") +
+  theme_minimal()
+```
+Based on our analysis, the lack of strong correlations between purchasing variables and recommendation frequency highlights the importance of refining recommendation quality and understanding individual abandonment factors. Age and gender demographics provide additional context for targeted marketing strategies, suggesting potential areas to strengthen category engagement among specific demographics. The Age and Gender Demographics by Purchase Category graph visualizes this with Beauty and Personal Care and Clothing and Fashion categories showing a higher count among younger age groups, with peaks around 20-30 years and categories such as groceries and home and kitchen goods having a much more even age spread/range. Overall, a more nuanced approach focused on product improvement, personalized recommendations, and demographic-based marketing can enhance customer satisfaction and drive sales across different product categories.
+
+### Further Merged Dataset Analysis
+For an additional deeper look into the dataset, we can merge certain aspects of the dataset to garner a better understanding 
+```{r}
+#Check for the unique values of my potential merge columns to maximize coverage 
+#unique(mydata1$sub_category)
+#unique(mydata2$Purchase_Categories)
+
+
+#Mapping Creation 
+category_mapping <- list(
+  # Groceries and Gourmet Food
+  "All Grocery & Gourmet Foods" = "Groceries and Gourmet Food",
+  "Coffee, Tea & Beverages" = "Groceries and Gourmet Food",
+  "Snack Foods" = "Groceries and Gourmet Food",
+  
+  # Beauty and Personal Care
+  "Beauty & Grooming" = "Beauty and Personal Care",
+  "Health & Personal Care" = "Beauty and Personal Care",
+  "Personal Care Appliances" = "Beauty and Personal Care",
+  "Luxury Beauty" = "Beauty and Personal Care",
+  "Make-up" = "Beauty and Personal Care",
+  
+  # Clothing and Fashion
+  "Amazon Fashion" = "Clothing and Fashion",
+  "Men's Fashion" = "Clothing and Fashion",
+  "Women's Fashion" = "Clothing and Fashion",
+  "Kids' Fashion" = "Clothing and Fashion",
+  "Backpacks" = "Clothing and Fashion",
+  "Bags & Luggage" = "Clothing and Fashion",
+  "Shoes" = "Clothing and Fashion",
+  "Casual Shoes" = "Clothing and Fashion",
+  "Formal Shoes" = "Clothing and Fashion",
+  "Sports Shoes" = "Clothing and Fashion",
+  "Ethnic Wear" = "Clothing and Fashion",
+  "Western Wear" = "Clothing and Fashion",
+  "T-shirts & Polos" = "Clothing and Fashion",
+  "Innerwear" = "Clothing and Fashion",
+  "Lingerie & Nightwear" = "Clothing and Fashion",
+  "Sunglasses" = "Clothing and Fashion",
+  "Watches" = "Clothing and Fashion",
+  
+  # Home and Kitchen
+  "All Home & Kitchen" = "Home and Kitchen",
+  "Bedroom Linen" = "Home and Kitchen",
+  "Home Furnishing" = "Home and Kitchen",
+  "Home Décor" = "Home and Kitchen",
+  "Furniture" = "Home and Kitchen",
+  "Kitchen & Dining" = "Home and Kitchen",
+  "Kitchen & Home Appliances" = "Home and Kitchen",
+  "Kitchen Storage & Containers" = "Home and Kitchen",
+  "Heating & Cooling Appliances" = "Home and Kitchen",
+  "Washing Machines" = "Home and Kitchen",
+  "Refrigerators" = "Home and Kitchen",
+  "Household Supplies" = "Home and Kitchen",
+  
+  # Electronics
+  "All Electronics" = "Electronics",
+  "Home Audio & Theater" = "Electronics",
+  "Speakers" = "Electronics",
+  "Headphones" = "Electronics",
+  "Televisions" = "Electronics",
+  "Cameras" = "Electronics",
+  "Camera Accessories" = "Electronics",
+  "Security Cameras" = "Electronics",
+  
+  # Sports and Fitness
+  "All Sports, Fitness & Outdoors" = "Sports and Fitness",
+  "All Exercise & Fitness" = "Sports and Fitness",
+  "Camping & Hiking" = "Sports and Fitness",
+  "Cycling" = "Sports and Fitness",
+  "Fitness Accessories" = "Sports and Fitness",
+  "Badminton" = "Sports and Fitness",
+  "Football" = "Sports and Fitness",
+  "Cricket" = "Sports and Fitness",
+  "Strength Training" = "Sports and Fitness",
+  "Yoga" = "Sports and Fitness",
+  
+  # Miscellaneous
+  "Dog supplies" = "Pet Supplies",
+  "Toys & Games" = "Toys and Games",
+  "STEM Toys Store" = "Toys and Games",
+  "Lab & Scientific" = "Industrial Supplies",
+  "Industrial & Scientific Supplies" = "Industrial Supplies",
+  "others" = "others" # Catch-all for unmatched categories
+)
+
+
+#Standardizing sub_categories column in mydata1
+mydata1$Standardized_Category <- sapply(mydata1$sub_category, function(x) {
+  if (x %in% names(category_mapping)) {
+    category_mapping[[x]]
+  } else {
+    "others"
+  }
+})
+
+
+#Handle Compound Categories in Purchase_Categories for mydata2
+standardize_compound_category <- function(category, mapping) {
+  components <- unlist(strsplit(category, ";"))
+  mapped_components <- unique(sapply(components, function(x) {
+    if (x %in% names(mapping)) {
+      mapping[[x]]
+    } else {
+      "others"
+    }
+  }))
+  return(paste(mapped_components, collapse = ";"))
+}
+
+mydata2$Standardized_Category <- sapply(mydata2$Purchase_Categories, standardize_compound_category, mapping = category_mapping)
+
+#Merge
+merged_data <- merge(mydata1, mydata2, by = "Standardized_Category", all = TRUE)
+```
+
+
+
+```{r}
+write.csv(merged_data, "merged_data.csv", row.names = FALSE)
+```
+
