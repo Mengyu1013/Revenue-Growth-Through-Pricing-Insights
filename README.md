@@ -1,4 +1,4 @@
-# Data-Driven-Product-Insights-for-Amazon
+# Revenue Growth Through Pricing Insights
 This project investigates customer preferences and product performance on Amazon, leveraging comprehensive datasets to uncover actionable insights for improving product offerings and marketing strategies. The analysis includes:
 Key Objectives:
 Understand customer purchasing behavior across various product categories.
